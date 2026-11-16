@@ -194,53 +194,22 @@ async function useModel(meta, buffer, origen){
   }
   const mb = (buffer.byteLength/1048576).toFixed(1);
   setStatus('ok', `Modelo listo (${origen}, ${mb} MB, motor ${tf.getBackend()})`);
-  $('loader').open = false;
 }
-
-/* Guardar el modelo en este navegador (IndexedDB) */
-function idb(){ return new Promise((res, rej) => { const r = indexedDB.open('eco-modelo', 1); r.onupgradeneeded = () => r.result.createObjectStore('m'); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }); }
-async function idbPut(v){ const db = await idb(); return new Promise((res,rej)=>{ const t=db.transaction('m','readwrite'); t.objectStore('m').put(v,'actual'); t.oncomplete=res; t.onerror=()=>rej(t.error); }); }
-async function idbGet(){ const db = await idb(); return new Promise((res,rej)=>{ const q=db.transaction('m').objectStore('m').get('actual'); q.onsuccess=()=>res(q.result); q.onerror=()=>rej(q.error); }); }
-async function idbDel(){ const db = await idb(); return new Promise((res)=>{ const t=db.transaction('m','readwrite'); t.objectStore('m').delete('actual'); t.oncomplete=res; }); }
 
 async function loadInitial(){
   try { await tf.setBackend('webgl'); } catch(e) { /* usa el motor por defecto */ }
   await tf.ready();
-  // Modelo exportado a JSON + pesos binarios, servido por Flask.
   try {
     const r = await fetch(MODEL_URL + 'eco_web.json', {cache:'no-cache'});
-    if (r.ok) {
-      const meta = await r.json();
-      const b = await fetch(MODEL_URL + (meta.archivo_pesos || 'eco_web_pesos.bin'));
-      if (b.ok) { await useModel(meta, await b.arrayBuffer(), 'publicado con la página'); return; }
-    }
-  } catch(e) { /* no está publicado: se intenta lo siguiente */ }
-  // 2) Modelo guardado antes en este navegador
-  try {
-    const g = await idbGet();
-    if (g) { await useModel(g.meta, g.buffer, 'guardado en este navegador'); return; }
-  } catch(e) { /* IndexedDB no disponible */ }
-  setStatus('off', 'Falta el modelo. Cárgalo desde tu dispositivo.');
-  $('loader').open = true;
+    if (!r.ok) throw new Error(`No se encontró ${MODEL_URL}eco_web.json (HTTP ${r.status}).`);
+    const meta = await r.json();
+    const b = await fetch(MODEL_URL + (meta.archivo_pesos || 'eco_web_pesos.bin'));
+    if (!b.ok) throw new Error(`No se pudieron cargar los pesos (HTTP ${b.status}).`);
+    await useModel(meta, await b.arrayBuffer(), 'publicado con la página');
+  } catch(e) {
+    setStatus('off', 'No se pudo cargar el modelo publicado: ' + e.message);
+  }
 }
-
-$('fileModel').addEventListener('change', async e => {
-  const files = [...e.target.files];
-  const fj = files.find(f => f.name.endsWith('.json')), fb = files.find(f => f.name.endsWith('.bin'));
-  if (files.some(f => f.name.endsWith('.keras'))) { setStatus('off', 'El archivo .keras es para Python. Aquí van eco_web.json y eco_web_pesos.bin (los genera la sección 12 del cuaderno).'); return; }
-  if (!fj || !fb) { setStatus('off', 'Selecciona los dos archivos a la vez: eco_web.json y eco_web_pesos.bin.'); return; }
-  setStatus('wait', 'Cargando el modelo…');
-  try {
-    const meta = JSON.parse(await fj.text()); const buffer = await fb.arrayBuffer();
-    const esperado = meta.capas.reduce((s,c)=>s+(c.pesos||[]).reduce((t,p)=>t+p.n,0),0) * 4;
-    if (buffer.byteLength !== esperado) throw new Error(`El .bin no corresponde a este .json (pesa ${buffer.byteLength} bytes y debería pesar ${esperado}).`);
-    await useModel(meta, buffer, 'cargado desde tu dispositivo');
-    try { await idbPut({meta, buffer}); } catch(_) {}
-    if (stream) loop();
-  } catch(err) { setStatus('off', 'No se pudo cargar: ' + err.message); }
-  e.target.value = '';
-});
-$('btnForget').addEventListener('click', async () => { try { await idbDel(); setStatus(MODEL?'ok':'off', MODEL ? 'Se borró la copia guardada. El modelo sigue cargado hasta cerrar la página.' : 'No hay modelo guardado.'); } catch(_) {} });
 
 /* =========================================================
    Preparar la imagen igual que en el cuaderno:
@@ -291,16 +260,14 @@ function mostrar(p){
   }).join('');
 }
 function sinModelo(){
-  setStatus('off', 'Falta el modelo. Cárgalo desde tu dispositivo para poder detectar.');
-  $('loader').open = true;
+  setStatus('off', 'El modelo publicado no está disponible. Revisa la carpeta modelo/ y vuelve a desplegar en Render.');
   $('result').dataset.bin = 'duda';
   $('rEyebrow').textContent = 'Falta el modelo';
   $('rClase').textContent = 'No puedo analizar todavía';
   $('rConf').textContent = 'Confianza: —';
-  $('rDonde').textContent = 'Ejecuta la sección 12 del cuaderno en Colab y carga eco_web.json y eco_web_pesos.bin con «Elegir archivos del modelo», o ponlos en la carpeta modelo/ junto a index.html.';
+  $('rDonde').textContent = 'Coloca eco_web.json y eco_web_pesos.bin en la carpeta modelo/ del proyecto y vuelve a publicar en Render.';
   $('ovl').hidden = false; $('ovlDot').style.background = 'transparent';
   $('ovlTxt').textContent = 'Falta el modelo: cárgalo para detectar';
-  $('loader').scrollIntoView({block:'nearest', behavior:'smooth'});
 }
 
 /* =========================================================

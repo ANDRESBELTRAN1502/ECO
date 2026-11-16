@@ -32,12 +32,16 @@ Abre <http://127.0.0.1:5000>. Para usar la cámara en producción, el sitio debe
 
 ## Publicar
 
-Sube el proyecto a GitHub y conecta el repositorio a un servicio que ejecute aplicaciones Flask, como Render. Configura:
+El archivo `render.yaml` configura el despliegue de Flask en Render. En Render, crea un **Blueprint** y conecta el repositorio de GitHub; Render leerá la configuración, instalará las dependencias e iniciará la aplicación. Los siguientes comandos también pueden configurarse manualmente:
 
 - **Build command:** `pip install -r requirements.txt`
 - **Start command:** `gunicorn app:app`
 
 GitHub Pages solo publica sitios estáticos y no ejecuta `app.py`; se necesita un servicio de alojamiento para Flask.
+
+## Guardar y publicar modelos entrenados
+
+Guarda cada modelo exportado por la sección 12 del cuaderno en una subcarpeta distinta de `modelos_entrenados/`, junto con sus archivos `eco_web.json` y `eco_web_pesos.bin`. Para activar uno, copia esos dos archivos a `modelo/` reemplazando la versión actual y súbelos a la rama `main`; Render volverá a desplegar la aplicación con el modelo nuevo.
 
 ## Estructura
 
@@ -48,6 +52,7 @@ modelo/
   eco_web_modelo.js        # Modelo incluido por la versión estática
   eco_web.json
   eco_web_pesos.bin
+modelos_entrenados/        # Copias de modelos entrenados por versión
 templates/
   primera_pagina/       # Detector
   como_se_hace/         # Explicación del proyecto
