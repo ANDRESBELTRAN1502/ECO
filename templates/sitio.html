@@ -13,13 +13,14 @@
 <header class="top">
   <div class="wrap">
     <div class="brand">
-      <div class="logo" aria-hidden="true">E</div>
+      <img class="logo" src="{{ url_for('static', filename='img/logo-eco.png') }}" alt="Logo de ECO">
       <div><b>ECO</b><small>Identificador visual de residuos</small></div>
     </div>
     <nav class="tabs" aria-label="Secciones">
       <a href="{{ url_for('inicio') }}" data-view="detector">Detector</a>
       <a href="{{ url_for('como_funciona') }}" data-view="como-funciona">Cómo funciona</a>
     </nav>
+    <button class="btn welcome-trigger" id="welcomeOpen" type="button">Ver video</button>
   </div>
 </header>
 
@@ -315,10 +316,25 @@
 </section>
 </main>
 
+<dialog class="welcome-dialog" id="welcomeDialog" aria-labelledby="welcomeTitle">
+  <div class="welcome-panel">
+    <div class="welcome-heading">
+      <h2 id="welcomeTitle">Conoce ECO</h2>
+      <button class="btn welcome-close" id="welcomeClose" type="button" aria-label="Cerrar video">Cerrar</button>
+    </div>
+    <video id="welcomeVideo" controls autoplay muted playsinline preload="none" aria-label="Video de presentación de ECO">
+      <source src="{{ url_for('static', filename='video/ECO_video_final.mp4') }}" type="video/mp4">
+      Tu navegador no puede reproducir este video.
+    </video>
+    <p class="welcome-error" id="welcomeError" hidden></p>
+  </div>
+</dialog>
+
 <footer><div class="wrap">ECO · Proyecto de Inteligencia Artificial, Universidad de Cundinamarca. Dataset: Garbage Classification (Kaggle, mostafaabla).</div></footer>
 
 {% if vista == "detector" %}<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>{% endif %}
 <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+<script src="{{ url_for('static', filename='js/bienvenida.js') }}"></script>
 
 </body>
 </html>
