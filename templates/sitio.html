@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ECO Identificador de Residuos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/estilos.css') }}">
+</head>
+<body data-view="{{ vista }}" data-model-url="{{ url_for('modelo', filename='') }}">
+<header class="top">
+  <div class="wrap">
+    <div class="brand">
+      <div class="logo" aria-hidden="true">E</div>
+      <div><b>ECO</b><small>Identificador visual de residuos</small></div>
+    </div>
+    <nav class="tabs" aria-label="Secciones">
+      <a href="{{ url_for('inicio') }}" data-view="detector">Detector</a>
+      <a href="{{ url_for('como_funciona') }}" data-view="como-funciona">Cómo funciona</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+<!-- ===================== DETECTOR ===================== -->
+<section class="view" id="v-detector" aria-labelledby="t-det"{% if vista != "detector" %} hidden{% endif %}>
+  <h1 id="t-det" class="sr">Detector de residuos</h1>
+  <div class="det">
+    <div class="card">
+      <div class="stage" id="stage">
+        <video id="video" playsinline muted autoplay></video>
+        <canvas class="shot" id="shot" width="448" height="448"></canvas>
+        <div class="guide" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+        <div class="live-pill">En vivo</div>
+        <div class="ovl" id="ovl" hidden><span class="dot" id="ovlDot"></span><span id="ovlTxt"></span></div>
+        <div class="placeholder" id="placeholder">
+          <div>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.6"/></svg>
+            Enciende la cámara o sube una foto.<br>Pon el residuo en el centro, cerca y con buena luz.
+          </div>
+        </div>
+      </div>
+      <div class="controls">
+        <button class="btn primary grow" id="btnCam" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.4"/></svg>
+          <span>Encender cámara</span>
+        </button>
+        <button class="btn" id="btnFlip" type="button" disabled title="Cambiar entre cámara frontal y trasera">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 11a8 8 0 0 0-14.3-4.9L4 8M4 4v4h4M4 13a8 8 0 0 0 14.3 4.9L20 16m0 4v-4h-4"/></svg>
+          Girar
+        </button>
+        <button class="btn" id="btnSnap" type="button" disabled>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3" fill="currentColor"/></svg>
+          <span>Capturar</span>
+        </button>
+        <label class="btn grow" for="fileImg">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 16v4h16v-4M12 4v12M7 9l5-5 5 5"/></svg>
+          Subir o tomar foto
+        </label>
+        <input id="fileImg" class="sr" type="file" accept="image/*">
+      </div>
+      <p class="hint">En vivo la red analiza la imagen unas veces por segundo y promedia los últimos cuadros para que el resultado no salte. <b>Capturar</b> congela la imagen y hace un análisis más preciso.</p>
+      <div class="note warn" id="camMsg" hidden></div>
+    </div>
+
+    <div class="side">
+      <div class="result" id="result" data-bin="duda" aria-live="polite">
+        <div class="eyebrow" id="rEyebrow">Resultado</div>
+        <div class="clase" id="rClase">Esperando imagen</div>
+        <div class="conf" id="rConf">Confianza: —</div>
+        <div class="donde" id="rDonde">Cuando la red vea un residuo, aquí aparece la caneca donde va.</div>
+      </div>
+      <div class="card">
+        <h3 style="font-size:16px;margin-bottom:10px">Las 3 clases más probables</h3>
+        <div class="top3" id="top3"><p class="small">Todavía no hay predicción.</p></div>
+      </div>
+      <div class="card">
+        <div class="status" id="mStatus" data-s="wait"><span class="dot"></span><span id="mText">Cargando el modelo…</span></div>
+        <details class="loader" id="loader" style="margin-top:12px">
+          <summary>Cargar el modelo desde mi dispositivo</summary>
+          <p class="small">Selecciona juntos los dos archivos que genera la sección 12 del cuaderno: <code>eco_web.json</code> y <code>eco_web_pesos.bin</code>. Se guardan en este navegador para la próxima vez.</p>
+          <div class="controls">
+            <label class="btn" for="fileModel">Elegir archivos del modelo</label>
+            <input id="fileModel" class="sr" type="file" multiple accept=".json,.bin,.keras">
+            <button class="btn" id="btnForget" type="button">Borrar modelo guardado</button>
+          </div>
+        </details>
+      </div>
+      <div class="card">
+        <h3 style="font-size:16px;margin-bottom:10px">Código de colores (Colombia)</h3>
+        <div class="bins">
+          <div class="bin b1"><b>Blanca</b>Cartón, papel, plástico, metal y vidrio</div>
+          <div class="bin b2"><b>Verde</b>Orgánicos y restos de comida</div>
+          <div class="bin b3"><b>Negra</b>Basura general, ropa y zapatos dañados</div>
+          <div class="bin b4"><b>Posconsumo</b>Baterías y pilas: no van en caneca</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== CÓMO FUNCIONA ===================== -->
+<section class="view" id="v-como-funciona" aria-labelledby="t-cf"{% if vista != "como-funciona" %} hidden{% endif %}>
+  <div class="intro">
+    <div>
+      <h1 id="t-cf">Cómo aprende ECO a reconocer un residuo</h1>
+      <p class="lead">Una red neuronal convolucional (CNN) mira una foto, la compara con lo que aprendió de 15.493 imágenes y dice a cuál de 12 tipos de residuo se parece. Luego traduce ese tipo a la caneca correcta.</p>
+      <p class="meta">Universidad de Cundinamarca · Ingeniería de Sistemas y Computación · Inteligencia Artificial<br>Andrés Felipe Beltrán Barrera · Prof. Yudy Amparo Narváez Vallejo · Chía, 2026</p>
+    </div>
+    <div class="tiles">
+      <div class="tile"><div class="n">80,4 %</div><div class="l">aciertos en la caneca correcta (prueba)</div></div>
+      <div class="tile"><div class="n">70,0 %</div><div class="l">aciertos en las 12 clases exactas</div></div>
+      <div class="tile"><div class="n">15.493</div><div class="l">imágenes limpias de 15.515 originales</div></div>
+      <div class="tile"><div class="n">1,21 M</div><div class="l">parámetros de la CNN propia</div></div>
+    </div>
+  </div>
+
+  <ol class="flow" aria-label="Etapas del cuaderno">
+    <li><a href="#como-funciona" data-jump="s1"><span>01</span>Configuración</a></li>
+    <li><a href="#como-funciona" data-jump="s2"><span>02</span>Dataset</a></li>
+    <li><a href="#como-funciona" data-jump="s3"><span>03</span>Canecas</a></li>
+    <li><a href="#como-funciona" data-jump="s4"><span>04</span>Información</a></li>
+    <li><a href="#como-funciona" data-jump="s5"><span>05</span>Limpieza</a></li>
+    <li><a href="#como-funciona" data-jump="s6"><span>06</span>División</a></li>
+    <li><a href="#como-funciona" data-jump="s7"><span>07</span>Aumento</a></li>
+    <li><a href="#como-funciona" data-jump="s8"><span>08</span>La CNN</a></li>
+    <li><a href="#como-funciona" data-jump="s9"><span>09</span>Entrenamiento</a></li>
+    <li><a href="#como-funciona" data-jump="s10"><span>10</span>Evaluación</a></li>
+    <li><a href="#como-funciona" data-jump="s11"><span>11</span>Cámara</a></li>
+  </ol>
+
+  <article class="step" id="s1">
+    <div class="num">01</div>
+    <div>
+      <h2>Configuración general</h2>
+      <p class="q"><b class="lab">Qué se hace</b>Se importan las librerías (TensorFlow/Keras, pandas, scikit-learn, Pillow) y se fijan los parámetros en un solo lugar para poder cambiarlos fácil.</p>
+      <div class="tbl"><table>
+        <thead><tr><th>Parámetro</th><th class="num">Valor</th><th>Para qué sirve</th></tr></thead>
+        <tbody>
+          <tr><td><code>IMG_SIZE</code></td><td class="num">224 px</td><td>Toda imagen se lleva a 224 × 224 antes de entrar a la red</td></tr>
+          <tr><td><code>BATCH_SIZE</code></td><td class="num">32</td><td>Imágenes que ve la red antes de actualizar sus pesos</td></tr>
+          <tr><td><code>EPOCHS_CNN</code></td><td class="num">15</td><td>Máximo de pasadas completas por los datos</td></tr>
+          <tr><td><code>SEED</code></td><td class="num">42</td><td>Semilla para poder repetir los resultados</td></tr>
+          <tr><td><code>MODO_RAPIDO</code></td><td class="num">False</td><td>Si es True usa 60 fotos por clase y 2 épocas, para probar rápido</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+  </article>
+
+  <article class="step" id="s2">
+    <div class="num">02</div>
+    <div>
+      <h2>Descarga del dataset</h2>
+      <p class="q"><b class="lab">Qué se hace</b>Se descarga de Kaggle <i>Garbage Classification</i> (autor mostafaabla) con <code>kagglehub</code>. Trae unas 15.500 fotos en 12 carpetas, una por tipo de residuo. El código busca solo la carpeta que contiene las 12 subcarpetas, porque la ruta cambia entre versiones del dataset.</p>
+    </div>
+  </article>
+
+  <article class="step" id="s3">
+    <div class="num">03</div>
+    <div>
+      <h2>Nombres en español y caneca de cada clase</h2>
+      <p class="q"><b class="lab">Qué se hace</b>La red aprende 12 clases detalladas, pero al usuario se le muestra la caneca según la Resolución 2184 de 2019. Las baterías van aparte porque son residuo peligroso.</p>
+      <div class="tbl"><table id="tblCanecas">
+        <thead><tr><th>Caneca</th><th>Clases del dataset</th></tr></thead>
+        <tbody></tbody>
+      </table></div>
+      <p class="why">Aprender 12 clases le da más información a la red. Si confunde papel con cartón, igual manda el residuo a la caneca blanca, así que el error no le cuesta nada al usuario.</p>
+    </div>
+  </article>
+
+  <article class="step" id="s4">
+    <div class="num">04</div>
+    <div>
+      <h2>Información del dataset</h2>
+      <p class="q"><b class="lab">Qué se hace</b>Se recorre cada carpeta y se arma una tabla con una fila por archivo (ruta, clase, extensión, peso). Con ella se cuenta cuántas fotos hay por clase y se revisa si el dataset está balanceado.</p>
+      <div class="chart" style="margin-top:16px">
+        <h3>Imágenes por clase después de limpiar (color = caneca)</h3>
+        <svg id="chClases" role="img" aria-label="Gráfica de barras de imágenes por clase"></svg>
+      </div>
+      <p class="why">Ropa tiene 5.324 fotos y vidrio café 607: un desbalance de 8,8 veces. Sin corregirlo, la red tendería a responder «ropa» cuando dude. Todas las fotos son <code>.jpg</code>.</p>
+    </div>
+  </article>
+
+  <article class="step" id="s5">
+    <div class="num">05</div>
+    <div>
+      <h2>Limpieza de datos</h2>
+      <p class="q"><b class="lab">Qué se hace</b>Se revisa cada imagen con 16 hilos en paralelo. A cada una se le calcula su huella MD5 (un código único según su contenido) y se verifica que abra bien.</p>
+      <div class="tbl"><table>
+        <thead><tr><th>Problema</th><th>Por qué es malo</th><th>Acción</th><th class="num">Encontradas</th></tr></thead>
+        <tbody>
+          <tr><td>Formato no soportado</td><td>Hace fallar el entrenamiento</td><td>Se elimina</td><td class="num">0</td></tr>
+          <tr><td>Imagen corrupta</td><td>Hace fallar el entrenamiento</td><td>Se elimina</td><td class="num">0</td></tr>
+          <tr><td>Menor de 32 px</td><td>No tiene detalle suficiente</td><td>Se elimina</td><td class="num">0</td></tr>
+          <tr><td>Duplicada</td><td>Si una copia cae en prueba, infla la precisión</td><td>Se deja una copia</td><td class="num">16</td></tr>
+          <tr><td>Misma foto en 2 clases</td><td>Etiqueta contradictoria</td><td>Se eliminan todas</td><td class="num">6</td></tr>
+        </tbody>
+      </table></div>
+      <p class="why">Luego se guarda una copia estandarizada en <code>eco_limpio/</code>: todo en RGB (lo transparente sobre fondo blanco), rotación EXIF corregida y máximo 256 px por lado en JPEG. El dataset original no se toca.</p>
+    </div>
+  </article>
+
+  <article class="step" id="s6">
+    <div class="num">06</div>
+    <div>
+      <h2>División: entrenamiento, validación y prueba</h2>
+      <p class="q"><b class="lab">Qué se hace</b>Se separan las fotos de forma estratificada, así cada grupo conserva la proporción de cada clase. Se calculan pesos por clase para que los errores en clases pequeñas cuesten más.</p>
+      <div class="grid2">
+        <div class="tbl" style="margin:0"><table>
+          <thead><tr><th>Conjunto</th><th class="num">%</th><th class="num">Fotos</th><th>Uso</th></tr></thead>
+          <tbody>
+            <tr><td>Entrenamiento</td><td class="num">70</td><td class="num">10.845</td><td>La red aprende con estas</td></tr>
+            <tr><td>Validación</td><td class="num">15</td><td class="num">2.324</td><td>Se revisa al final de cada época</td></tr>
+            <tr><td>Prueba</td><td class="num">15</td><td class="num">2.324</td><td>Solo al final, fotos nunca vistas</td></tr>
+          </tbody>
+        </table></div>
+        <div class="tbl" style="margin:0"><table id="tblPesos">
+          <thead><tr><th>Clase</th><th class="num">Peso</th></tr></thead>
+          <tbody></tbody>
+        </table></div>
+      </div>
+      <p class="why">Ropa recibe peso 0,24 y vidrio café 2,13: equivocarse en vidrio café le cuesta a la red casi 9 veces más, lo que compensa que tenga menos fotos. Las imágenes se cargan con <code>tf.data</code> con <code>cache()</code> y <code>prefetch()</code>; la normalización 0–255 → 0–1 va dentro del modelo para que reciba la foto tal cual sale de la cámara.</p>
+    </div>
+  </article>
+
+  <article class="step" id="s7">
+    <div class="num">07</div>
+    <div>
+      <h2>Aumento de datos</h2>
+      <p class="q"><b class="lab">Qué se hace</b>Durante el entrenamiento cada foto se transforma al azar en cada época. Así la red aprende cómo es el objeto y no la foto exacta, que es una de las mejores defensas contra el sobreajuste.</p>
+      <ul>
+        <li><b>Volteo horizontal</b> (<code>RandomFlip</code>)</li>
+        <li><b>Rotación</b> de hasta ±10 % de vuelta (<code>RandomRotation(0.10)</code>)</li>
+        <li><b>Zoom</b> de hasta 15 % (<code>RandomZoom(0.15)</code>)</li>
+        <li><b>Contraste</b> de hasta 15 % (<code>RandomContrast(0.15)</code>)</li>
+      </ul>
+      <p class="why">Con la cámara la botella puede estar girada, más cerca o con otra luz. Estas capas solo actúan al entrenar; al predecir se apagan.</p>
+    </div>
+  </article>
+
+  <article class="step" id="s8">
+    <div class="num">08</div>
+    <div>
+      <h2>Modelo: CNN propia desde cero</h2>
+      <p class="q"><b class="lab">Qué se hace</b>Se construye la red del documento ECO: capas convolucionales, capa densa y Softmax. Cada bloque tiene dos convoluciones 3×3 con ReLU y BatchNormalization, y un MaxPooling que reduce la imagen a la mitad.</p>
+      <div class="arch" aria-label="Arquitectura de la red">
+        <div class="blk">Entrada<small>224×224×3</small></div><span class="to">→</span>
+        <div class="blk">Rescaling<small>÷255</small></div><span class="to">→</span>
+        <div class="blk conv">Bloque 1<small>32 filtros · 112²</small></div><span class="to">→</span>
+        <div class="blk conv">Bloque 2<small>64 filtros · 56²</small></div><span class="to">→</span>
+        <div class="blk conv">Bloque 3<small>128 filtros · 28²</small></div><span class="to">→</span>
+        <div class="blk conv">Bloque 4<small>256 filtros · 14²</small></div><span class="to">→</span>
+        <div class="blk">GlobalAvgPool<small>256</small></div><span class="to">→</span>
+        <div class="blk">Dropout 0,4 · Dense 128 · Dropout 0,3</div><span class="to">→</span>
+        <div class="blk">Softmax<small>12 clases</small></div>
+      </div>
+      <p class="why">Los primeros filtros detectan bordes, los siguientes texturas y los últimos formas. Se usa ReLU en vez de Sigmoid o Tanh (como en Fashion MNIST) porque evita el desvanecimiento del gradiente. <code>GlobalAveragePooling</code> deja muchos menos parámetros que <code>Flatten</code>: 1.210.540 en total.</p>
+    </div>
+  </article>
+
+  <article class="step" id="s9">
+    <div class="num">09</div>
+    <div>
+      <h2>Entrenamiento por épocas</h2>
+      <p class="q"><b class="lab">Qué se hace</b>Se entrena con Adam (tasa 0,001), pesos por clase y tres ayudantes que vigilan cada época:</p>
+      <ul>
+        <li><b>EarlyStopping</b>: si la validación no mejora en 5 épocas, para y recupera la mejor época.</li>
+        <li><b>ReduceLROnPlateau</b>: si la pérdida de validación se estanca 2 épocas, divide la tasa de aprendizaje a la mitad.</li>
+        <li><b>CSVLogger</b>: guarda las métricas de cada época en un archivo.</li>
+      </ul>
+      <div class="grid2">
+        <div class="chart"><h3>Precisión por época</h3><svg id="chAcc" role="img" aria-label="Precisión de entrenamiento y validación por época"></svg>
+          <div class="legend"><span><i style="background:var(--chart-a)"></i>Entrenamiento</span><span style="color:var(--chart-b)"><i class="dash"></i><span style="color:var(--muted)">Validación</span></span><span>★ Mejor época (12)</span></div></div>
+        <div class="chart"><h3>Pérdida por época</h3><svg id="chLoss" role="img" aria-label="Pérdida de entrenamiento y validación por época"></svg>
+          <div class="legend"><span><i style="background:var(--chart-a)"></i>Entrenamiento</span><span style="color:var(--chart-b)"><i class="dash"></i><span style="color:var(--muted)">Validación</span></span></div></div>
+      </div>
+      <p class="why">La validación pasó de 33 % a 70,4 % en la época 12, que es la que se queda. La tasa de aprendizaje bajó 4 veces (0,001 → 0,0000625). Las curvas van juntas y la validación incluso queda por encima, por el Dropout y el aumento de datos: no hay sobreajuste, y la red todavía podría mejorar con más épocas.</p>
+      <div class="tbl"><table id="tblEpocas">
+        <thead><tr><th class="num">Época</th><th class="num">Acc. entren. %</th><th class="num">Acc. valid. %</th><th class="num">Loss entren.</th><th class="num">Loss valid.</th><th class="num">Brecha %</th></tr></thead>
+        <tbody></tbody>
+      </table></div>
+    </div>
+  </article>
+
+  <article class="step" id="s10">
+    <div class="num">10</div>
+    <div>
+      <h2>Evaluación con fotos nunca vistas</h2>
+      <p class="q"><b class="lab">Qué se hace</b>Se prueba la red con las 2.324 fotos de prueba. Se mide la exactitud en las 12 clases y la exactitud por caneca, que es la que importa para el objetivo de ECO.</p>
+      <div class="tiles" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr));margin-top:14px">
+        <div class="tile"><div class="n">70,01 %</div><div class="l">exactitud en 12 clases</div></div>
+        <div class="tile"><div class="n">80,42 %</div><div class="l">exactitud por caneca</div></div>
+        <div class="tile"><div class="n">0,662</div><div class="l">F1 promedio (macro)</div></div>
+      </div>
+      <div class="chart" style="margin-top:16px">
+        <h3>F1 por clase (0 = nunca acierta, 1 = perfecto)</h3>
+        <svg id="chF1" role="img" aria-label="F1 por clase"></svg>
+      </div>
+      <p class="why"><b>Precisión</b>: de las veces que dijo «plástico», cuántas eran plástico. <b>Recall</b>: de los plásticos reales, cuántos encontró. <b>F1</b>: el equilibrio de las dos. Lo mejor: ropa (0,84) y vidrio verde (0,82). Lo más difícil: zapatos (0,40, solo encuentra 3 de cada 10) y metal (0,53).</p>
+      <div class="tbl"><table id="tblReporte">
+        <thead><tr><th>Clase</th><th class="num">Precisión</th><th class="num">Recall</th><th class="num">F1</th><th class="num">Fotos</th></tr></thead>
+        <tbody></tbody>
+      </table></div>
+    </div>
+  </article>
+
+  <article class="step" id="s11">
+    <div class="num">11</div>
+    <div>
+      <h2>Guardar el modelo y usar la cámara</h2>
+      <p class="q"><b class="lab">Qué se hace</b>Se guarda la red como <code>eco_modelo.keras</code> y sus clases en <code>eco_clases.json</code>. Para esta página, la sección 12 del cuaderno exporta los pesos a <code>eco_web.json</code> + <code>eco_web_pesos.bin</code>, que el navegador ejecuta con TensorFlow.js sin servidor.</p>
+      <ul>
+        <li>Se recorta el centro de la imagen en cuadrado, donde suele estar el objeto.</li>
+        <li>Se redimensiona a 224 × 224 y se pasa a la red.</li>
+        <li>Se muestran la clase, la confianza, las 3 más probables y la caneca.</li>
+        <li>Si la confianza es menor a 50 %, avisa que no está seguro y pide acercar el objeto o mejorar la luz.</li>
+      </ul>
+      <p class="why">Toda la predicción ocurre en el dispositivo: la foto nunca sale del celular o del computador.</p>
+      <p style="margin-top:16px"><a class="btn primary" href="{{ url_for('inicio') }}">Probar el detector</a></p>
+    </div>
+  </article>
+</section>
+</main>
+
+<footer><div class="wrap">ECO · Proyecto de Inteligencia Artificial, Universidad de Cundinamarca. Dataset: Garbage Classification (Kaggle, mostafaabla).</div></footer>
+
+{% if vista == "detector" %}<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>{% endif %}
+<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+
+</body>
+</html>
